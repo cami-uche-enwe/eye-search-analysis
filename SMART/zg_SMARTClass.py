@@ -43,9 +43,9 @@ class SMART:
         self.sigLevel = 0.05
         self.statTest = scipy.stats.ttest_rel
         # Plotting inputs
-        self.lineColor1 = [250,0,0]
-        self.lineColor2 = [0,0,255]
-        self.linewidth = 2
+        self.lineColor1 = [32, 32, 32]
+        self.lineColor2 = [100,100,100]
+        self.linewidth = 4
         self.markerOffset = 0.75
         self.markerSize = 10
         self.xLabelSize = 20
@@ -253,8 +253,11 @@ class SMART:
         # Calculate 95 confidence intervals
         self.conf95 = SF.weighPairedConf95(self.smooth_dv1, self.smooth_dv2, self.weights_dv1, self.weights_dv2)
     
+  
     def __twoSamplePlot__(self):
-        # Plot smoothed data
+       
+
+       # Plot smoothed data
         self.ax1.plot(self.timeVect, self.weighDv1Average, color=self.lineColor1, linewidth=self.linewidth)
         self.ax1.plot(self.timeVect, self.weighDv2Average, color=self.lineColor2, linewidth=self.linewidth)
         
@@ -270,24 +273,37 @@ class SMART:
                               color=self.lineColor2, 
                               alpha=0.25)
 
-        
-        # Plot significant time points
-        for ind, i in enumerate(self.sigCL):
-            self.ax1.plot(self.timeVect[i], self.weighDv1Average[i], 'k-', linewidth=self.linewidth*1.5)
-            self.ax1.plot(self.timeVect[i], self.weighDv2Average[i], 'k-', linewidth=self.linewidth*1.5)
+
+            # Plot significant time points
+        #for ind, i in enumerate(self.sigCL):
+           # self.ax1.plot(self.timeVect[i], self.weighDv1Average[i], '')#, linewidth=self.linewidth*1.5
+           # self.ax1.plot(self.timeVect[i], self.weighDv2Average[i], '')#, linewidth=self.linewidth*1.5
             # Plot asterix for signficant clusters
-            if self.sumTvals[ind] >= self.sigThres:
-                xPos = np.average(self.timeVect[i])
-                yPos = np.max([self.weighDv1Average[int(np.mean(i))], self.weighDv2Average[int(np.mean(i))]])+self.markerOffset+np.max(self.conf95[int(np.mean(i))])
-                if (yPos >= self.yMax - 0.1) or (yPos <= self.yMin):
-                    yPos = self.yMax-0.5
-                self.ax1.plot(xPos,yPos, 'k*', ms=self.markerSize)
+            #if self.sumTvals[ind] >= self.sigThres:
+                #xPos = np.average(self.timeVect[i])
+                #yPos = np.max([self.weighDv1Average[int(np.mean(i))], self.weighDv2Average[int(np.mean(i))]])+self.markerOffset+np.max(self.conf95[int(np.mean(i))])
+                #if yPos >= self.yMax:
+                 #   yPos = self.yMax-0.5
+                #self.ax1.plot(xPos,yPos, 'k*', ms=self.markerSize)
 
         self.ax1.set_xlim(self.timeMin, self.timeMax-1)
         self.ax1.set_ylim(self.yMin, self.yMax)
         self.ax1.legend([self.dv1, self.dv2,'Sig. difference'],loc=1)
         self.ax1.set_xlabel('Time', fontsize=self.xLabelSize)
         self.ax1.set_ylabel('Dep.var', size=self.yLabelSize)
+        
+        # Print the time window of the significant cluster
+        if self.sigCL:  # Ensure there are significant clusters
+            for ind, i in enumerate(self.sigCL):
+                start_time = self.timeVect[i][0]
+                end_time = self.timeVect[i][-1]
+                tcluster = self.sumTvals[ind]  # Sum of t-values for the cluster
+                dcluster = tcluster / np.sqrt(23 + 1)  # Effect size calculation
+        
+                print(f"Significant cluster from {start_time:.0f} to {end_time:.0f} ms, "
+              f"p < {self.sigLevel:.3f}, tcluster ({23}) = {tcluster:.2f}, dcluster = {dcluster:.2f}")
+        else:
+            print("No significant clusters found.")
         
         # Plot permutation distributions
         self.ax2.hist(self.permDistr, self.histRes)
@@ -310,11 +326,41 @@ class SMART:
         self.ax1_1.bar(unqT1, countT1, color='k', alpha = 0.6)
         self.ax1_1.bar(unqT2, countT2, color='k', alpha = 0.3)
         self.ax1_1.set_ylim(0, maxT)
-        self.ax1_1.legend(['KDE_1', 'KDE_2'],loc=4)    
+        #self.ax1_1.legend(['LC-Same','LC-Different'],loc=4, prop={"size": 12})    #address the size here
         self.ax1_1.set_yticks(np.linspace(0,np.max(np.hstack([sTimes1, sTimes2])),3, dtype=int))
-
-
-
+  
+    def __differencePlot__(self):
+        # Calculate the difference between the two smoothed averages
+        diff = self.weighDv1Average - self.weighDv2Average
     
+        # Calculate the confidence intervals for the difference
+        diff_conf95 = SF. weighPairedConf95(self.smooth_dv1, self.smooth_dv2, self.weights_dv1, self.weights_dv2)
     
+        # Plot the difference
+        self.ax3.plot(self.timeVect, diff, color='purple', linewidth=self.linewidth, label='Difference')
+        self.ax3.fill_between(self.timeVect, 
+                          diff - diff_conf95, 
+                          diff + diff_conf95, 
+                          color='purple', alpha=0.25)
+    
+        # Highlight significant clusters
+        for ind, i in enumerate(self.sigCL):
+            self.ax3.plot(self.timeVect[i], diff[i], 'k-', linewidth=self.linewidth)
+            #if self.sumTvals[ind] >= self.sigThres:
+             #     xPos = np.average(self.timeVect[i])
+              #    yPos = np.max(diff[i]) + self.markerOffset
+               #   self.ax3.plot(xPos, yPos, 'k*', ms=self.markerSize)
+
+        # Set axis limits and labels
+        self.ax3.set_xlim(self.timeMin, self.timeMax-1)
+        self.ax3.set_ylim([-1, 1])  # Adjust based on your data range
+        self.ax3.set_xlabel('Time (ms)', fontsize=self.xLabelSize)
+        self.ax3.set_ylabel('Difference (Red - Blue)', size=self.yLabelSize)
+        self.ax3.legend(loc=1)
+
+  
+    
+  
+    
+  
     
